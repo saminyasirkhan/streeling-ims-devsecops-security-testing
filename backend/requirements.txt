@@ -7,3 +7,4 @@ python-jose[cryptography]==3.5.0
 python-dotenv==1.2.1
 slowapi==0.1.9
 python-multipart==0.0.21
+zipp==3.19.1
