@@ -42,6 +42,61 @@ This project consists of two parts: a Python Backend (FastAPI) and a React Front
 
 ---
 
+## Security Header Fix
+
+The Vite frontend development server has been configured to return browser security headers during local testing. This fixes the OWASP ZAP passive finding for **Content Security Policy (CSP) Header Not Set** on the frontend.
+
+The change is in:
+
+```text
+frontend/vite.config.js
+```
+
+The frontend now returns:
+
+```text
+Content-Security-Policy
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+```
+
+The CSP permits only the local frontend/backend, Vite websocket traffic, Google Fonts, local/data images, and the UI avatar image provider used by the app.
+
+### Verify the Fix
+
+Start both servers, then run:
+
+```powershell
+curl.exe -I http://127.0.0.1:5173/
+```
+
+Expected frontend result:
+
+```text
+HTTP/1.1 200 OK
+Content-Security-Policy: default-src 'self'; ...
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+```
+
+The backend can be checked with:
+
+```powershell
+curl.exe http://127.0.0.1:8000/
+```
+
+Expected backend result:
+
+```json
+{"message":"IMS Backend Service - Modularized"}
+```
+
+Note: `curl.exe -I http://127.0.0.1:8000/` may return `405 Method Not Allowed` because `-I` sends a `HEAD` request, while the backend root route is defined for `GET`.
+
+---
+
 ## Default Test Credentials
 
 Role        | Username                         | Password
