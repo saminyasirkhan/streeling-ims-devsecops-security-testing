@@ -44,15 +44,18 @@ This project consists of two parts: a Python Backend (FastAPI) and a React Front
 
 ## Security Header Fix
 
-The Vite frontend development server has been configured to return browser security headers during local testing. This addresses two OWASP ZAP passive findings on the frontend:
+The Vite frontend development server has been configured to return browser security headers during local testing. This addresses three OWASP ZAP passive findings on the frontend:
 
 - **Content Security Policy (CSP) Header Not Set**
 - **Missing Anti-clickjacking Header**
+- **Sub Resource Integrity Attribute Missing**
 
-The change is in:
+The changes are in:
 
 ```text
 frontend/vite.config.js
+frontend/index.html
+frontend/src/index.css
 ```
 
 ### What Was Changed
@@ -82,7 +85,32 @@ Content-Security-Policy: frame-ancestors 'none'
 
 The CSP `frame-ancestors 'none'` directive provides the same protection using the modern Content Security Policy mechanism. It explicitly prevents any parent page from framing the application. Including both headers improves browser compatibility and satisfies OWASP ZAP's anti-clickjacking passive scan rule.
 
-The broader CSP also restricts where frontend resources can load from. It permits only the local frontend/backend, Vite websocket traffic, Google Fonts, local/data images, and the UI avatar image provider used by the app. This reduces the risk of browser-side injection by limiting approved script, style, image, font, and connection sources.
+The broader CSP also restricts where frontend resources can load from. It permits only the local frontend/backend, Vite websocket traffic, local/data images, and the UI avatar image provider used by the app. This reduces the risk of browser-side injection by limiting approved script, style, image, font, and connection sources.
+
+### Subresource Integrity Fix
+
+OWASP ZAP also flagged the frontend because `index.html` loaded the Inter font stylesheet from Google Fonts:
+
+```html
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+```
+
+That stylesheet was served by an external domain and did not include an `integrity` attribute, so ZAP reported **Sub Resource Integrity Attribute Missing**. Instead of adding a fragile SRI hash to a stylesheet that can change externally, the frontend now removes the Google Fonts dependency completely.
+
+The app now uses a local system font stack in `frontend/src/index.css`:
+
+```css
+font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+```
+
+The CSP was also tightened so it no longer allows Google Fonts:
+
+```text
+style-src 'self' 'unsafe-inline'
+font-src 'self' data:
+```
+
+This removes the vulnerable external stylesheet from the HTML response and reduces third-party frontend dependencies during local security testing.
 
 ### Why This Fix Matters
 
@@ -120,6 +148,26 @@ Expected result:
 Content-Security-Policy: ... frame-ancestors 'none'
 X-Frame-Options: DENY
 ```
+
+To verify the Subresource Integrity fix, run:
+
+```powershell
+curl.exe http://127.0.0.1:5173/ | Select-String "fonts.googleapis|fonts.gstatic|stylesheet"
+```
+
+Expected result:
+
+```text
+No output
+```
+
+No output means the page no longer contains the external Google Fonts stylesheet that triggered the ZAP SRI finding. You can also confirm the tightened CSP with:
+
+```powershell
+curl.exe -I http://127.0.0.1:5173/
+```
+
+The `Content-Security-Policy` header should not include `fonts.googleapis.com` or `fonts.gstatic.com`.
 
 If ZAP still shows the old alert after this change, start a fresh ZAP session or clear the old alert tree before rescanning. Existing ZAP alerts can remain visible even after the application response headers have been fixed.
 

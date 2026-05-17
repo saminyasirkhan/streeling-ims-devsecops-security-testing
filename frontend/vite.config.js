@@ -11,8 +11,8 @@ export default defineConfig({
             'Content-Security-Policy': [
                 "default-src 'self'",
                 "script-src 'self' 'unsafe-inline'",
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-                "font-src 'self' https://fonts.gstatic.com data:",
+                "style-src 'self' 'unsafe-inline'",
+                "font-src 'self' data:",
                 "img-src 'self' data: https://ui-avatars.com",
                 "connect-src 'self' http://127.0.0.1:8000 ws://127.0.0.1:5173",
                 "object-src 'none'",
