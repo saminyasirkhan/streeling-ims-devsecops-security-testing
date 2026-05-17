@@ -44,7 +44,10 @@ This project consists of two parts: a Python Backend (FastAPI) and a React Front
 
 ## Security Header Fix
 
-The Vite frontend development server has been configured to return browser security headers during local testing. This fixes the OWASP ZAP passive finding for **Content Security Policy (CSP) Header Not Set** on the frontend.
+The Vite frontend development server has been configured to return browser security headers during local testing. This addresses two OWASP ZAP passive findings on the frontend:
+
+- **Content Security Policy (CSP) Header Not Set**
+- **Missing Anti-clickjacking Header**
 
 The change is in:
 
@@ -52,16 +55,40 @@ The change is in:
 frontend/vite.config.js
 ```
 
-The frontend now returns:
+### What Was Changed
+
+The frontend server now returns the following headers on Vite-served pages:
 
 ```text
-Content-Security-Policy
+Content-Security-Policy: default-src 'self'; ...; frame-ancestors 'none'
 X-Frame-Options: DENY
 X-Content-Type-Options: nosniff
 Referrer-Policy: strict-origin-when-cross-origin
 ```
 
-The CSP permits only the local frontend/backend, Vite websocket traffic, Google Fonts, local/data images, and the UI avatar image provider used by the app.
+The anti-clickjacking fix is provided by two controls:
+
+```text
+X-Frame-Options: DENY
+```
+
+and:
+
+```text
+Content-Security-Policy: frame-ancestors 'none'
+```
+
+`X-Frame-Options: DENY` tells browsers that the IMS frontend must not be embedded inside a frame, iframe, or object on another page. This protects against clickjacking attacks, where an attacker loads the real application inside an invisible or misleading frame and tricks a user into clicking sensitive buttons.
+
+The CSP `frame-ancestors 'none'` directive provides the same protection using the modern Content Security Policy mechanism. It explicitly prevents any parent page from framing the application. Including both headers improves browser compatibility and satisfies OWASP ZAP's anti-clickjacking passive scan rule.
+
+The broader CSP also restricts where frontend resources can load from. It permits only the local frontend/backend, Vite websocket traffic, Google Fonts, local/data images, and the UI avatar image provider used by the app. This reduces the risk of browser-side injection by limiting approved script, style, image, font, and connection sources.
+
+### Why This Fix Matters
+
+Without an anti-clickjacking header, the application can be embedded in another website. A malicious site could visually hide or overlay the IMS page and trick a logged-in user into performing unintended actions. In an inventory management system, this could affect workflows such as approving loans, changing user details, or interacting with administrative pages.
+
+By setting `X-Frame-Options: DENY` and `frame-ancestors 'none'`, the frontend now refuses to be framed by any other page. This closes the control gap identified by ZAP under **Missing Anti-clickjacking Header**.
 
 ### Verify the Fix
 
@@ -80,6 +107,21 @@ X-Frame-Options: DENY
 X-Content-Type-Options: nosniff
 Referrer-Policy: strict-origin-when-cross-origin
 ```
+
+To verify the exact URL reported by ZAP for the anti-clickjacking issue, run:
+
+```powershell
+curl.exe -I http://127.0.0.1:5173/sitemap.xml
+```
+
+Expected result:
+
+```text
+Content-Security-Policy: ... frame-ancestors 'none'
+X-Frame-Options: DENY
+```
+
+If ZAP still shows the old alert after this change, start a fresh ZAP session or clear the old alert tree before rescanning. Existing ZAP alerts can remain visible even after the application response headers have been fixed.
 
 The backend can be checked with:
 
