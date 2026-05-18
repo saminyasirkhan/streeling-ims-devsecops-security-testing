@@ -1,0 +1,95 @@
+name: DevSecOps Security Pipeline
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  snyk-sast:
+    name: Snyk SAST and Dependency Scan
+    runs-on: ubuntu-latest
+
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Install Snyk CLI
+        uses: snyk/actions/setup@master
+
+      - name: Create security report directory
+        run: mkdir -p security-reports
+
+      - name: Snyk scan backend dependencies
+        working-directory: backend
+        run: |
+          set +e
+          echo "Running Snyk high-severity scan for backend Python dependencies..."
+          snyk test \
+            --file=requirements.txt \
+            --package-manager=pip \
+            --severity-threshold=high \
+            --json-file-output=../security-reports/snyk-backend.json
+          echo $? > ../security-reports/snyk-backend.exitcode
+          exit 0
+
+      - name: Snyk scan frontend dependencies
+        working-directory: frontend
+        run: |
+          set +e
+          echo "Running Snyk high-severity scan for frontend npm dependencies..."
+          snyk test \
+            --severity-threshold=high \
+            --json-file-output=../security-reports/snyk-frontend.json
+          echo $? > ../security-reports/snyk-frontend.exitcode
+          exit 0
+
+      - name: Upload Snyk reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-security-reports
+          path: security-reports/
+          if-no-files-found: warn
+
+      - name: Enforce Snyk high-severity gate
+        run: |
+          BACKEND_EXIT=$(cat security-reports/snyk-backend.exitcode)
+          FRONTEND_EXIT=$(cat security-reports/snyk-frontend.exitcode)
+
+          echo "Backend Snyk exit code: ${BACKEND_EXIT}"
+          echo "Frontend Snyk exit code: ${FRONTEND_EXIT}"
+
+          if [ "${BACKEND_EXIT}" -ne 0 ] || [ "${FRONTEND_EXIT}" -ne 0 ]; then
+            echo "Snyk reported high-severity vulnerabilities or a scan error."
+            exit 1
+          fi
+
+          echo "Snyk high-severity gate passed."
