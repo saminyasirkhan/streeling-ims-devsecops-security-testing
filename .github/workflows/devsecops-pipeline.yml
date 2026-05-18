@@ -44,6 +44,16 @@ jobs:
       - name: Install Snyk CLI
         uses: snyk/actions/setup@master
 
+      - name: Verify Snyk authentication
+        run: |
+          if [ -z "${SNYK_TOKEN}" ]; then
+            echo "::error::SNYK_TOKEN is not configured. Add it in GitHub under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+          snyk --version
+          snyk auth "${SNYK_TOKEN}"
+
       - name: Create security report directory
         run: mkdir -p security-reports
 
@@ -87,8 +97,13 @@ jobs:
           echo "Backend Snyk exit code: ${BACKEND_EXIT}"
           echo "Frontend Snyk exit code: ${FRONTEND_EXIT}"
 
+          if [ "${BACKEND_EXIT}" -eq 1 ] || [ "${FRONTEND_EXIT}" -eq 1 ]; then
+            echo "::error::Snyk found high-severity vulnerabilities. The DevSecOps gate blocked the pipeline."
+            exit 1
+          fi
+
           if [ "${BACKEND_EXIT}" -ne 0 ] || [ "${FRONTEND_EXIT}" -ne 0 ]; then
-            echo "Snyk reported high-severity vulnerabilities or a scan error."
+            echo "::error::Snyk scan did not complete successfully. Check the SNYK_TOKEN secret and scan logs."
             exit 1
           fi
 
