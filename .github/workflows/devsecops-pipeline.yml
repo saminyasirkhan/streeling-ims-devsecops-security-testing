@@ -145,7 +145,7 @@ jobs:
           allow_issue_writing: false
           fail_action: false
           artifact_name: zap-baseline-reports
-          cmd_options: "-r report_html.html -J report_json.json"
+          cmd_options: "-r report_html.html -J report_json.json -w report_md.md"
 
       - name: Upload application runtime logs
         if: always()
