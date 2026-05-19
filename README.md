@@ -21,11 +21,17 @@ This project consists of two parts: a Python Backend (FastAPI) and a React Front
 ### 1. Start the Backend
 
 1.  Open a terminal and navigate to the `backend` folder.
-2.  Activate the virtual environment:
+2.  Create and activate a virtual environment:
     ```bash
-    .\venv\Scripts\Activate
+    python -m venv .venv
+    .\.venv\Scripts\Activate
     ```
-3.  Run the server:
+3.  Install the backend dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+4.  Optional: copy `backend/.env.example` to `backend/.env` and replace `SECRET_KEY` with a long random value. If no `SECRET_KEY` is provided, the development server generates an ephemeral runtime key.
+5.  Run the server:
     ```bash
     uvicorn main:app --reload
     ```

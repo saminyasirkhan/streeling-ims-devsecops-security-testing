@@ -4,12 +4,14 @@ from jose import JWTError, jwt
 from typing import Optional
 
 import os
+import secrets
 from dotenv import load_dotenv
 
 load_dotenv()
 
-    # move to env var in production
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-for-dev-only")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    SECRET_KEY = secrets.token_urlsafe(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -51,4 +53,3 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
-
