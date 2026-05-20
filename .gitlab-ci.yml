@@ -3,10 +3,16 @@ stages:
 
 devsecops_security_pipeline:
   stage: security
-  image: ghcr.io/zaproxy/zaproxy:stable
+  image:
+    name: ghcr.io/zaproxy/zaproxy:stable
+    entrypoint: [""]
+    docker:
+      user: "0"
   variables:
     ZAP_TARGET: "http://127.0.0.1:5173"
   before_script:
+    - mkdir -p security-reports
+    - echo "GitLab DevSecOps pipeline started." > security-reports/gitlab-ci.log
     - apt-get update
     - apt-get install -y curl nodejs npm python3 python3-pip python3-venv
     - python3 --version
