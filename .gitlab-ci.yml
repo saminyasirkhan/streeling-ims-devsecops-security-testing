@@ -13,6 +13,7 @@ devsecops_security_pipeline:
     PIP_BREAK_SYSTEM_PACKAGES: "1"
   before_script:
     - mkdir -p security-reports
+    - mkdir -p /zap/wrk
     - echo "GitLab DevSecOps pipeline started." > security-reports/gitlab-ci.log
     - apt-get update
     - apt-get install -y curl nodejs npm python3 python3-pip python3-venv python3-yaml
@@ -90,8 +91,8 @@ devsecops_security_pipeline:
         sleep 2
       done
 
-    - zap-baseline.py -t "$ZAP_TARGET" -r report_html.html -J report_json.json -w report_md.md || true
-    - cp report_html.html report_json.json report_md.md security-reports/
+    - zap-baseline.py -t "$ZAP_TARGET" -r /zap/wrk/report_html.html -J /zap/wrk/report_json.json -w /zap/wrk/report_md.md || true
+    - cp /zap/wrk/report_html.html /zap/wrk/report_json.json /zap/wrk/report_md.md security-reports/
 
     - BACKEND_EXIT=$(cat security-reports/snyk-backend.exitcode)
     - FRONTEND_EXIT=$(cat security-reports/snyk-frontend.exitcode)
