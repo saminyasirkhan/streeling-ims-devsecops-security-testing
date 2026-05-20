@@ -38,6 +38,7 @@ devsecops_security_pipeline:
     - set -e
     - nohup python -m uvicorn main:app --host 127.0.0.1 --port 8000 > ../security-reports/backend-runtime.log 2>&1 &
     - cd ..
+    - deactivate
 
     - cd frontend
     - npm install
