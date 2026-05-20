@@ -91,7 +91,9 @@ devsecops_security_pipeline:
         sleep 2
       done
 
-    - zap-baseline.py -t "$ZAP_TARGET" -r /zap/wrk/report_html.html -J /zap/wrk/report_json.json -w /zap/wrk/report_md.md || true
+    - cd /zap/wrk
+    - zap-baseline.py -t "$ZAP_TARGET" -r report_html.html -J report_json.json -w report_md.md || true
+    - cd "$CI_PROJECT_DIR"
     - cp /zap/wrk/report_html.html /zap/wrk/report_json.json /zap/wrk/report_md.md security-reports/
 
     - BACKEND_EXIT=$(cat security-reports/snyk-backend.exitcode)
