@@ -1,0 +1,102 @@
+stages:
+  - security
+
+devsecops_security_pipeline:
+  stage: security
+  image: ghcr.io/zaproxy/zaproxy:stable
+  variables:
+    ZAP_TARGET: "http://127.0.0.1:5173"
+  before_script:
+    - apt-get update
+    - apt-get install -y curl nodejs npm python3 python3-pip python3-venv
+    - python3 --version
+    - node --version
+    - npm --version
+    - npm install -g snyk
+  script:
+    - mkdir -p security-reports
+    - test -n "$SNYK_TOKEN"
+    - snyk --version
+    - snyk auth "$SNYK_TOKEN"
+
+    - cd backend
+    - python3 -m venv .venv
+    - . .venv/bin/activate
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+    - set +e
+    - snyk test --file=requirements.txt --package-manager=pip --severity-threshold=high --json-file-output=../security-reports/snyk-backend.json
+    - echo $? > ../security-reports/snyk-backend.exitcode
+    - set -e
+    - nohup python -m uvicorn main:app --host 127.0.0.1 --port 8000 > ../security-reports/backend-runtime.log 2>&1 &
+    - cd ..
+
+    - cd frontend
+    - npm install
+    - set +e
+    - snyk test --severity-threshold=high --json-file-output=../security-reports/snyk-frontend.json
+    - echo $? > ../security-reports/snyk-frontend.exitcode
+    - set -e
+    - cd ..
+
+    - set +e
+    - snyk code test --severity-threshold=high --json-file-output=security-reports/snyk-code.json
+    - echo $? > security-reports/snyk-code.exitcode
+    - set -e
+
+    - cd frontend
+    - nohup npm run dev -- --host 127.0.0.1 --port 5173 > ../security-reports/frontend-runtime.log 2>&1 &
+    - cd ..
+
+    - |
+      for attempt in $(seq 1 30); do
+        if curl --fail --silent http://127.0.0.1:8000/ > /dev/null; then
+          echo "Backend is ready."
+          break
+        fi
+        if [ "$attempt" -eq 30 ]; then
+          echo "Backend did not become ready."
+          cat security-reports/backend-runtime.log
+          exit 1
+        fi
+        sleep 2
+      done
+
+    - |
+      for attempt in $(seq 1 30); do
+        if curl --fail --silent "$ZAP_TARGET" > /dev/null; then
+          echo "Frontend is ready."
+          break
+        fi
+        if [ "$attempt" -eq 30 ]; then
+          echo "Frontend did not become ready."
+          cat security-reports/frontend-runtime.log
+          exit 1
+        fi
+        sleep 2
+      done
+
+    - zap-baseline.py -t "$ZAP_TARGET" -r report_html.html -J report_json.json -w report_md.md || true
+    - cp report_html.html report_json.json report_md.md security-reports/
+
+    - BACKEND_EXIT=$(cat security-reports/snyk-backend.exitcode)
+    - FRONTEND_EXIT=$(cat security-reports/snyk-frontend.exitcode)
+    - CODE_EXIT=$(cat security-reports/snyk-code.exitcode)
+    - echo "Backend Snyk exit code ${BACKEND_EXIT}"
+    - echo "Frontend Snyk exit code ${FRONTEND_EXIT}"
+    - echo "Snyk Code SAST exit code ${CODE_EXIT}"
+    - |
+      if [ "$BACKEND_EXIT" -eq 1 ] || [ "$FRONTEND_EXIT" -eq 1 ] || [ "$CODE_EXIT" -eq 1 ]; then
+        echo "Snyk found high-severity vulnerabilities. The DevSecOps gate blocked the pipeline."
+        exit 1
+      fi
+      if [ "$BACKEND_EXIT" -ne 0 ] || [ "$FRONTEND_EXIT" -ne 0 ] || [ "$CODE_EXIT" -ne 0 ]; then
+        echo "Snyk scan did not complete successfully."
+        exit 1
+      fi
+  artifacts:
+    when: always
+    name: "gitlab-devsecops-security-reports"
+    paths:
+      - security-reports/
+    expire_in: 30 days
