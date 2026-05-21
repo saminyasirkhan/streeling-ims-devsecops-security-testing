@@ -40,11 +40,15 @@ This project consists of two parts: a Python Backend (FastAPI) and a React Front
 ### 2. Start the Frontend
 
 1.  Open a **second** terminal and navigate to the `frontend` folder.
-2.  Run the development server:
+2.  Install the frontend dependencies:
+    ```bash
+    npm install
+    ```
+3.  Run the development server:
     ```bash
     npm run dev
     ```
-3.  Open the app in your browser (usually `http://localhost:5173`).
+4.  Open the app in your browser (usually `http://localhost:5173`).
 
 ---
 
@@ -190,6 +194,24 @@ Expected backend result:
 ```
 
 Note: `curl.exe -I http://127.0.0.1:8000/` may return `405 Method Not Allowed` because `-I` sends a `HEAD` request, while the backend root route is defined for `GET`.
+
+---
+
+## GitLab CI/CD Security Pipeline
+
+The repository includes a GitLab CI/CD pipeline configured in `.gitlab-ci.yml`. The pipeline installs backend and frontend dependencies, authenticates with Snyk using the `SNYK_TOKEN` CI/CD variable, runs backend and frontend dependency scans, starts the FastAPI backend and Vite frontend, and executes an OWASP ZAP baseline scan against the running frontend.
+
+The pipeline publishes a job artifact archive named `gitlab-devsecops-security-reports`, which contains:
+
+- `snyk-backend.json`
+- `snyk-frontend.json`
+- `backend-runtime.log`
+- `frontend-runtime.log`
+- `report_html.html`
+- `report_json.json`
+- `report_md.md`
+
+The final validated GitLab pipeline run completed successfully on the `main` branch and demonstrates automated Snyk scanning, runtime deployment, OWASP ZAP DAST execution, and report generation.
 
 ---
 
